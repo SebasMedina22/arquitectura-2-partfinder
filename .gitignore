@@ -43,6 +43,7 @@ logs/
 CLAUDE.md
 ROADMAP.md
 docs/ARCHITECTURE.md
+docs/ARCHITECTURE.pdf
 .agents/
 .claude/
 plantuml.jar
