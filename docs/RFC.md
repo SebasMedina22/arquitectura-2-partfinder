@@ -1,12 +1,12 @@
 # RFC: PartFinder — Marketplace de Repuestos
 
-**Autores:** Sebastián Medina · _(pendientes integrantes del equipo)_
+**Autores:** Efren Felipe Cuadrado Barboza · Juan David Alvarez Garcia · Juan Diego Quintero Ortiz · Roison Garcia Sepulveda · Sebastian Medina Londoño
 **Materia:** Arquitectura de Software II — 2026-1
 **Caso de estudio:** #7 — PartFinder: El Marketplace de Repuestos
 **Fecha de diseño:** 2026-05-16
-**Fecha de cierre de implementación:** _pendiente_
-**Versión:** 0.1 (esqueleto)
-**Estado:** En implementación
+**Fecha de cierre de implementación:** 2026-05-19
+**Versión:** 1.0
+**Estado:** Implementado y verificado end-to-end (R1, R2 y R3 demostrables; observabilidad y bonus Nginx+UI incluidos)
 
 ---
 
@@ -161,7 +161,52 @@ _(Pendiente — se generará en Fase 7. Fuente PlantUML: `diagrams/c4/c4-l2-cont
 
 ## 6. Verificación end-to-end del sistema implementado
 
-_(Pendiente — se llena al cierre de Fase 6 con tabla idéntica en estructura a la de VoltNet RFC §6: cobertura de mínimos, bonificaciones, demos verificadas, decisiones revisadas durante implementación.)_
+Esta sección documenta lo que efectivamente se construyó y se verificó funcionando.
+
+### 6.1 Cobertura de mínimos de rúbrica
+
+| Mínimo de rúbrica | Cumplimiento |
+|---|---|
+| Arquitectura hexagonal estricta en los 3 MS | ✅ `domain/`, `application/`, `infrastructure/` en cada servicio. El dominio no importa Spring ni JPA. |
+| Base de datos propia por servicio | ✅ Elasticsearch + MySQL (Aggregator, polyglot intra-MS), MySQL (InventoryDirect), PostgreSQL (TrendCollector). Ninguna se comparte entre MS. |
+| Principios SOLID demostrables | ✅ Aplicados; ejemplos en `docs/ARCHITECTURE.md` §9. |
+| Mínimo 3 patrones GoF | ✅ Implementados los 4: Strategy (`OrderCreditPolicy`), Adapter (Feign/ES/JPA/AMQP), Factory (`SearchResultFactory`), Observer (`DomainEventPublisher` + Outbox). |
+| Validación programática de las 3 reglas del caso en la capa de dominio | ✅ R1 en `domain/factory/SearchResultFactory.java` + `infrastructure/client/InventoryDirectFeignAdapter.java`; R2 en `domain/policy/OrderCreditPolicy.java`; R3 mediante outbox transaccional desde `application/usecase/SearchPartUseCase.java`. |
+| Swagger/OpenAPI funcional por MS | ✅ springdoc-openapi 2.8 en los 3 MS, expuesto en `/swagger-ui.html`. |
+| 1 MS Principal + 1 MS Síncrono REST + 1 MS Asíncrono Broker | ✅ Aggregator (core hexagonal) + InventoryDirect (REST sync) + TrendCollector (broker async). |
+| Comunicación síncrona vía cliente REST declarativo | ✅ OpenFeign + Spring Cloud, instrumentado con Resilience4j CircuitBreaker + bean `Request.Options` con readTimeout=800ms. |
+| Comunicación asíncrona vía broker | ✅ RabbitMQ 3.13 con exchange topic `partfinder.search.events`, DLX `partfinder.trends.dlx` y DLQ. |
+| Docker Compose orquesta todo con un solo comando | ✅ `docker compose up -d --build` levanta 12 contenedores. |
+| Stack de observabilidad (Prometheus + Grafana + Jaeger) | ✅ Auto-provisionado: datasources Prometheus + Jaeger en Grafana, dashboard "PartFinder Health" con 6 paneles, OTel Agent en los 3 MS exportando vía OTLP. |
+| Documento RFC y Modelo C4 Nivel 2 | ✅ Este documento + diagramas PlantUML en `docs/diagrams/c4/`. |
+| Repositorio Git público con tabla de entregables en el README | ✅ https://github.com/SebasMedina22/arquitectura-2-partfinder |
+
+### 6.2 Bonificaciones implementadas
+
+| Bonificación | Cumplimiento |
+|---|---|
+| API Gateway | ✅ Nginx 1.27 en contenedor `ui-gateway` haciendo proxy reverso de los tres prefijos `/api/aggregator`, `/api/inventory`, `/api/trends`. |
+| Interfaz de Usuario | ✅ SPA React 18 + Vite servida por el mismo Nginx (puerto host 8080). Cinco pestañas: Buscar parte, Crear pedido, Pedidos del taller, Tendencias, Admin de simulación. |
+
+### 6.3 Demostraciones funcionales verificadas
+
+| Escenario | Solicitud | Resultado |
+|---|---|---|
+| Camino feliz | `GET /search?query=filtro&workshopId=WS-001` | HTTP 200, `availability=AVAILABLE`, 3 proveedores con stock |
+| R1 — degradación por timeout | slow-mode=1500ms en InventoryDirect, buscar de nuevo | HTTP 200, latencia ≈ 1216ms (cota dura por readTimeout=800ms + roundtrip), `availability=UNCERTAIN` |
+| R1 — Circuit Breaker | InventoryDirect cae > 50% en ventana de 10 | Breaker abre, fallback `markUncertain` sin tocar la red |
+| R2 — bloqueo por crédito | `POST /orders` con `workshopId=WS-003` (cupo excedido en seed) | HTTP 422, código `R2_CREDIT_EXCEEDED` |
+| R3 — búsqueda fallida | `GET /search?query=xyz-no-existe` | HTTP 200 `[]`; evento en `outbox_events`; worker lo publica en <1s; TrendCollector lo guarda; aparece en `GET /trends/top` |
+| Idempotencia consumer | Reintento del mismo `SearchFailedEvent` | PRIMARY KEY `event_id` rechaza el duplicado |
+| Trazabilidad distribuida | `GET /search` desde la UI | Jaeger muestra trace con ~12 spans cubriendo `ui-gateway → ms-aggregator → Feign → ms-inventory-direct → MySQL` con mismo `trace_id` |
+
+### 6.4 Decisiones revisadas durante implementación
+
+1. **Polyglot intra-MS en Aggregator** (ES + MySQL juntos): ES para búsqueda, MySQL para Outbox + proyección de crédito. La rúbrica permite polyglot dentro de un MS.
+2. **Puertos del compose ajustados para no chocar con VoltNet.** Si necesitas correr ambos, parar uno primero.
+3. **Configuración de Feign timeouts vía bean `Request.Options`.** Spring Cloud 2025.x cambió el namespace de la propiedad — el bean explícito es determinístico y resistente a cambios futuros.
+4. **Topología AMQP creada en runtime** por Spring AMQP. No usamos `load_definitions` porque RabbitMQ ignora `RABBITMQ_DEFAULT_USER/PASS` cuando hay un definitions montado (lección VoltNet).
+5. **API Gateway y UI fusionados en un solo contenedor `ui-gateway`.**
 
 ---
 

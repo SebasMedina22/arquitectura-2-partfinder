@@ -1,0 +1,10 @@
+spring:
+  datasource:
+    url: jdbc:mysql://mysql-aggregator:3306/aggregator?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+  rabbitmq:
+    host: rabbitmq
+  elasticsearch:
+    uris: http://elasticsearch:9200
+
+inventory-direct:
+  base-url: http://ms-inventory-direct:8082

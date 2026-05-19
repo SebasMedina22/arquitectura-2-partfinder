@@ -1,0 +1,45 @@
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: partfinder
+    env: local
+
+scrape_configs:
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: ms-aggregator
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['ms-aggregator:8081']
+        labels:
+          service: ms-aggregator
+          tier: core
+
+  - job_name: ms-inventory-direct
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['ms-inventory-direct:8082']
+        labels:
+          service: ms-inventory-direct
+          tier: sync
+
+  - job_name: ms-trend-collector
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['ms-trend-collector:8083']
+        labels:
+          service: ms-trend-collector
+          tier: async
+
+  - job_name: rabbitmq
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['rabbitmq:15692']
+        labels:
+          service: rabbitmq
+          tier: broker

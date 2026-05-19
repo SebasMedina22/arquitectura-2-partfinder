@@ -1,0 +1,58 @@
+spring:
+  application:
+    name: ms-inventory-direct
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/inventory?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: inventory
+    password: inventory
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: 8082
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ms-inventory-direct
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+inventory:
+  seed:
+    enabled: true
+  slow-mode:
+    # delay (ms) que se agrega artificialmente a cada GET /inventory.
+    # Sirve para forzar el escenario R1 (timeout > 800ms) desde el Aggregator
+    # sin tener que parchear codigo. Configurable en runtime via POST /admin/slow-mode.
+    initial-delay-ms: 0
+
+logging:
+  level:
+    root: INFO
+    com.partfinder.inventory: DEBUG

@@ -100,10 +100,13 @@ Para la justificación de cada decisión y el análisis de trade-offs, ver `docs
 
 ## Equipo
 
-| Integrante | Rol |
+| # | Integrante |
 |---|---|
-| Sebastián Medina | _por definir_ |
-| _Pendiente_ | _por definir_ |
+| 1 | Efren Felipe Cuadrado Barboza |
+| 2 | Juan David Alvarez Garcia |
+| 3 | Juan Diego Quintero Ortiz |
+| 4 | Roison Garcia Sepulveda |
+| 5 | Sebastian Medina Londoño |
 
 ---
 

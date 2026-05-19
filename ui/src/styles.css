@@ -1,0 +1,298 @@
+/* Design tokens — siguiendo principios impeccable
+   Register: product · Theme: dark · Color strategy: restrained (tinted neutrals + un acento azul electrico)
+   Tipografia: technical sans system stack + monospace para IDs (PRT-XXX, SUP-XXX, WS-XXX) */
+
+:root {
+  /* Neutros tintados hacia azul-grafito (chroma 0.005-0.015 — el tinte deberia "sentirse" sin verse) */
+  --bg-0:        oklch(0.16 0.012 245);  /* fondo de la pagina */
+  --bg-1:        oklch(0.20 0.013 245);  /* superficies elevadas (cards) */
+  --bg-2:        oklch(0.24 0.014 245);  /* hover/active */
+  --border:      oklch(0.32 0.014 245);
+  --border-strong: oklch(0.42 0.016 245);
+
+  --text-0:      oklch(0.97 0.005 245);  /* texto principal */
+  --text-1:      oklch(0.78 0.008 245);  /* texto secundario */
+  --text-2:      oklch(0.58 0.012 245);  /* texto terciario / placeholders */
+
+  /* Acento — azul electrico (registro tecnico/herramienta, no consumer) */
+  --accent:      oklch(0.68 0.18 245);
+  --accent-hi:   oklch(0.76 0.19 245);
+  --accent-lo:   oklch(0.55 0.18 245);
+
+  /* Semanticos para availability — base de R1 */
+  --ok:          oklch(0.72 0.18 145);   /* AVAILABLE — verde fresco no satinado */
+  --warn:        oklch(0.78 0.16 75);    /* UNCERTAIN — ambar, NO rojo. Es info, no error. */
+  --danger:      oklch(0.65 0.20 25);    /* NOT_FOUND / R2 bloqueado — rojo */
+
+  --radius-sm: 4px;
+  --radius:    6px;
+  --radius-lg: 10px;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+
+  --shadow-1: 0 1px 0 0 oklch(0.10 0 0 / .25), 0 4px 12px -4px oklch(0.10 0 0 / .35);
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--bg-0);
+  color: var(--text-0);
+  font-size: 14px;
+  line-height: 1.5;
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ===== Layout ===== */
+.app { max-width: 1280px; margin: 0 auto; padding: 24px 28px 60px; }
+
+.topbar {
+  display: flex; align-items: center; gap: 20px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 20px; margin-bottom: 24px;
+}
+.brand {
+  display: flex; align-items: baseline; gap: 12px;
+}
+.brand .mark {
+  width: 28px; height: 28px; border-radius: 6px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-lo));
+  position: relative;
+}
+.brand .mark::after {
+  content: ""; position: absolute; inset: 7px;
+  border: 2px solid oklch(0.16 0.012 245); border-radius: 2px;
+}
+.brand h1 {
+  margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em;
+}
+.brand .sub {
+  color: var(--text-2); font-size: 12px; letter-spacing: .04em; text-transform: uppercase;
+}
+
+.tabs {
+  display: flex; gap: 0; margin: 0 0 28px 0;
+  border-bottom: 1px solid var(--border);
+}
+.tabs button {
+  appearance: none; background: transparent; border: none;
+  color: var(--text-2); padding: 12px 18px;
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 120ms, border-color 120ms;
+}
+.tabs button:hover { color: var(--text-1); }
+.tabs button.active {
+  color: var(--text-0); border-bottom-color: var(--accent);
+}
+
+/* ===== Cards / paneles ===== */
+.card {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px 22px;
+  margin-bottom: 18px;
+  box-shadow: var(--shadow-1);
+}
+.card h2 {
+  margin: 0 0 4px;
+  font-size: 15px; font-weight: 600; letter-spacing: -0.005em;
+}
+.card .help {
+  margin: 0 0 18px;
+  color: var(--text-2); font-size: 12.5px;
+}
+
+/* ===== Formulario ===== */
+label {
+  display: block; font-size: 11px; font-weight: 500;
+  color: var(--text-2); letter-spacing: .04em; text-transform: uppercase;
+  margin-bottom: 6px;
+}
+input, select {
+  width: 100%;
+  background: var(--bg-0); color: var(--text-0);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 9px 11px; font-size: 13.5px;
+  font-family: var(--font-sans);
+  transition: border-color 120ms, background 120ms;
+}
+input:focus, select:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--bg-1);
+}
+input.mono { font-family: var(--font-mono); }
+
+.row {
+  display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;
+}
+.row > * { flex: 1; min-width: 160px; }
+
+button.btn {
+  appearance: none; cursor: pointer;
+  padding: 9px 18px; border-radius: var(--radius);
+  font-size: 13px; font-weight: 600; letter-spacing: 0.01em;
+  border: 1px solid transparent;
+  transition: background 120ms, border-color 120ms;
+  white-space: nowrap;
+}
+button.btn.primary {
+  background: var(--accent);
+  color: oklch(0.16 0.012 245);
+}
+button.btn.primary:hover:not(:disabled) { background: var(--accent-hi); }
+button.btn.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+button.btn.ghost {
+  background: transparent;
+  color: var(--text-0);
+  border-color: var(--border-strong);
+}
+button.btn.ghost:hover:not(:disabled) {
+  background: var(--bg-2);
+}
+
+button.btn.danger {
+  background: transparent; color: var(--danger);
+  border-color: color-mix(in oklch, var(--danger), transparent 60%);
+}
+
+/* ===== Tablas ===== */
+table {
+  width: 100%; border-collapse: collapse;
+  font-size: 13px;
+}
+thead th {
+  text-align: left; font-weight: 500;
+  color: var(--text-2); font-size: 11px; letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+tbody td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-1);
+  vertical-align: top;
+}
+tbody tr:hover td { background: var(--bg-2); color: var(--text-0); }
+.mono, code {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--text-0);
+}
+.muted { color: var(--text-2); }
+
+/* ===== Availability badges ===== */
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 11px; font-weight: 600;
+  letter-spacing: .04em; text-transform: uppercase;
+  border: 1px solid transparent;
+}
+.badge::before {
+  content: ""; width: 6px; height: 6px; border-radius: 50%;
+}
+.badge.AVAILABLE  { background: color-mix(in oklch, var(--ok), transparent 80%);   color: var(--ok);     border-color: color-mix(in oklch, var(--ok), transparent 60%); }
+.badge.AVAILABLE::before  { background: var(--ok); }
+.badge.UNCERTAIN  { background: color-mix(in oklch, var(--warn), transparent 80%); color: var(--warn);   border-color: color-mix(in oklch, var(--warn), transparent 55%); }
+.badge.UNCERTAIN::before  { background: var(--warn); }
+.badge.NOT_FOUND  { background: color-mix(in oklch, var(--danger), transparent 80%); color: var(--danger); border-color: color-mix(in oklch, var(--danger), transparent 60%); }
+.badge.NOT_FOUND::before  { background: var(--danger); }
+
+.badge.CREATED   { background: color-mix(in oklch, var(--accent), transparent 82%); color: var(--accent); border-color: color-mix(in oklch, var(--accent), transparent 60%); }
+.badge.CREATED::before    { background: var(--accent); }
+.badge.FULFILLED { background: color-mix(in oklch, var(--ok), transparent 82%); color: var(--ok); border-color: color-mix(in oklch, var(--ok), transparent 60%); }
+.badge.FULFILLED::before  { background: var(--ok); }
+
+/* ===== Alerts ===== */
+.alert {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 12px 14px; border-radius: var(--radius);
+  font-size: 13px; margin-top: 14px;
+  border: 1px solid transparent;
+}
+.alert .icon { font-weight: 700; font-family: var(--font-mono); flex: 0 0 auto; }
+.alert.ok    { background: color-mix(in oklch, var(--ok),     transparent 88%); color: var(--ok);     border-color: color-mix(in oklch, var(--ok),     transparent 60%); }
+.alert.warn  { background: color-mix(in oklch, var(--warn),   transparent 88%); color: var(--warn);   border-color: color-mix(in oklch, var(--warn),   transparent 55%); }
+.alert.err   { background: color-mix(in oklch, var(--danger), transparent 88%); color: var(--danger); border-color: color-mix(in oklch, var(--danger), transparent 60%); }
+
+/* ===== Resultados de busqueda ===== */
+.results {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-top: 16px;
+}
+.result-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.result-row .title {
+  font-size: 14px; font-weight: 600; margin: 0 0 2px;
+  color: var(--text-0);
+}
+.result-row .meta {
+  display: flex; gap: 14px; flex-wrap: wrap;
+  color: var(--text-2); font-size: 12px;
+}
+.result-row .meta .pill {
+  background: var(--bg-2); padding: 2px 8px; border-radius: 4px;
+  font-family: var(--font-mono); font-size: 11.5px; color: var(--text-1);
+}
+.result-row .right {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+}
+.price { font-size: 13.5px; font-weight: 600; }
+.offers {
+  font-size: 11.5px; color: var(--text-2);
+}
+
+/* ===== Util ===== */
+.stack-sm > * + * { margin-top: 8px; }
+.stack-md > * + * { margin-top: 16px; }
+
+.kv {
+  display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px;
+  font-size: 12.5px;
+}
+.kv dt { color: var(--text-2); }
+.kv dd { margin: 0; color: var(--text-0); }
+
+.legend {
+  font-size: 12px; color: var(--text-2); margin-top: 10px; line-height: 1.6;
+}
+.legend code { background: var(--bg-2); padding: 1px 6px; border-radius: 3px; }
+
+details {
+  background: var(--bg-0); border: 1px solid var(--border);
+  border-radius: var(--radius); margin-top: 12px;
+}
+details summary {
+  cursor: pointer; padding: 10px 14px;
+  font-size: 12px; color: var(--text-2); user-select: none;
+  list-style: none;
+}
+details summary::-webkit-details-marker { display: none; }
+details[open] summary { border-bottom: 1px solid var(--border); }
+details pre {
+  margin: 0; padding: 12px 14px;
+  background: transparent;
+  font-family: var(--font-mono); font-size: 11.5px;
+  color: var(--text-1); overflow: auto;
+}

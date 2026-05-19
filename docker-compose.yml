@@ -1,0 +1,294 @@
+# PartFinder — Orquestacion completa del ecosistema
+# Levanta: 3 microservicios + 3 DBs (Elasticsearch, MySQL, PostgreSQL)
+#          + RabbitMQ + Prometheus + Grafana + Jaeger + UI Gateway.
+# Uso: docker compose up -d --build
+#
+# Mapping de puertos host:
+#   UI + API Gateway (Nginx)  -> :8080
+#   ms-aggregator             -> :8081
+#   ms-inventory-direct       -> :8082
+#   ms-trend-collector        -> :8083
+#   Elasticsearch             -> :9200
+#   MySQL (Aggregator)        -> :3307
+#   MySQL (InventoryDirect)   -> :3308
+#   PostgreSQL (Trends)       -> :5434
+#   RabbitMQ AMQP             -> :5672
+#   RabbitMQ Management UI    -> :15672  (partfinder/partfinder)
+#   Prometheus                -> :9090
+#   Grafana                   -> :3000   (anonymous viewer; admin/admin)
+#   Jaeger UI                 -> :16686
+#   Jaeger OTLP gRPC/HTTP     -> :4317 / :4318
+#
+# IMPORTANTE: estos puertos colisionan con los de VoltNet. NO correr ambos
+# proyectos al mismo tiempo.
+
+name: partfinder
+
+networks:
+  partfinder-net:
+    driver: bridge
+
+volumes:
+  es-data:
+  mysql-aggregator-data:
+  mysql-inventory-data:
+  pg-trends-data:
+  rabbitmq-data:
+  prometheus-data:
+  grafana-data:
+
+services:
+
+  # ---------- Bases de datos ----------
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
+    container_name: partfinder-elasticsearch
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    networks: [partfinder-net]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:9200/_cluster/health | grep -E '\"status\":\"(green|yellow)\"'"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  mysql-aggregator:
+    image: mysql:8.4
+    container_name: partfinder-mysql-aggregator
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootroot
+      MYSQL_DATABASE: aggregator
+      MYSQL_USER: aggregator
+      MYSQL_PASSWORD: aggregator
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-aggregator-data:/var/lib/mysql
+    networks: [partfinder-net]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uaggregator", "-paggregator"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  mysql-inventory:
+    image: mysql:8.4
+    container_name: partfinder-mysql-inventory
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootroot
+      MYSQL_DATABASE: inventory
+      MYSQL_USER: inventory
+      MYSQL_PASSWORD: inventory
+    ports:
+      - "3308:3306"
+    volumes:
+      - mysql-inventory-data:/var/lib/mysql
+    networks: [partfinder-net]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uinventory", "-pinventory"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  postgres-trends:
+    image: postgres:16-alpine
+    container_name: partfinder-postgres-trends
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: trends
+      POSTGRES_USER: trends
+      POSTGRES_PASSWORD: trends
+    ports:
+      - "5434:5432"
+    volumes:
+      - pg-trends-data:/var/lib/postgresql/data
+    networks: [partfinder-net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trends -d trends"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------- Broker ----------
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: partfinder-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: partfinder
+      RABBITMQ_DEFAULT_PASS: partfinder
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks: [partfinder-net]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # ---------- Observabilidad ----------
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.60
+    container_name: partfinder-jaeger
+    restart: unless-stopped
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
+    networks: [partfinder-net]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:14269/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    container_name: partfinder-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks: [partfinder-net]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:9090/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    container_name: partfinder-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks: [partfinder-net]
+    depends_on:
+      prometheus:
+        condition: service_started
+
+  # ---------- Microservicios ----------
+
+  ms-aggregator:
+    build:
+      context: ./services/ms-aggregator
+    image: partfinder/ms-aggregator:0.1.0
+    container_name: partfinder-ms-aggregator
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      OTEL_SERVICE_NAME: ms-aggregator
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: none
+      OTEL_LOGS_EXPORTER: none
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+    ports:
+      - "8081:8081"
+    networks: [partfinder-net]
+    depends_on:
+      mysql-aggregator:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      jaeger:
+        condition: service_started
+
+  ms-inventory-direct:
+    build:
+      context: ./services/ms-inventory-direct
+    image: partfinder/ms-inventory-direct:0.1.0
+    container_name: partfinder-ms-inventory-direct
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      OTEL_SERVICE_NAME: ms-inventory-direct
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: none
+      OTEL_LOGS_EXPORTER: none
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+    ports:
+      - "8082:8082"
+    networks: [partfinder-net]
+    depends_on:
+      mysql-inventory:
+        condition: service_healthy
+      jaeger:
+        condition: service_started
+
+  ms-trend-collector:
+    build:
+      context: ./services/ms-trend-collector
+    image: partfinder/ms-trend-collector:0.1.0
+    container_name: partfinder-ms-trend-collector
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      OTEL_SERVICE_NAME: ms-trend-collector
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: none
+      OTEL_LOGS_EXPORTER: none
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+    ports:
+      - "8083:8083"
+    networks: [partfinder-net]
+    depends_on:
+      postgres-trends:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      jaeger:
+        condition: service_started
+
+  # ---------- API Gateway + UI (Bonus, Fase 5) ----------
+
+  ui-gateway:
+    build:
+      context: ./ui
+    image: partfinder/ui-gateway:0.1.0
+    container_name: partfinder-ui-gateway
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    networks: [partfinder-net]
+    depends_on:
+      - ms-aggregator
+      - ms-inventory-direct
+      - ms-trend-collector

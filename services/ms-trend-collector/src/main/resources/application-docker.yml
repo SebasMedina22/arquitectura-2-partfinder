@@ -1,0 +1,5 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://postgres-trends:5432/trends
+  rabbitmq:
+    host: rabbitmq

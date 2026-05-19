@@ -1,0 +1,21 @@
+@startuml partfinder-c4-l1-context
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+title PartFinder — C4 Nivel 1 (Contexto del sistema)
+
+Person(mechanic, "Mecanico / Dueño de taller", "Busca repuestos para autos en reparacion y emite pedidos al proveedor que tenga stock.")
+Person(supplier, "Proveedor / Bodega", "Recibe pedidos de talleres y publica analiticos de demanda no satisfecha.")
+Person(admin, "Operador de PartFinder", "Configura cupos de credito, simula latencia en bodegas para QA, monitorea salud del sistema.")
+
+System(partfinder, "PartFinder", "Marketplace que orquesta busquedas y pedidos de repuestos, garantizando UX util incluso cuando las bodegas son lentas.")
+
+System_Ext(invSystems, "Sistemas heredados de bodegas", "Servicios REST con latencia variable (algunos > 800ms). Simulados via MS-InventoryDirect.")
+System_Ext(observability, "Stack de observabilidad", "Prometheus + Grafana + Jaeger. Recolecta metricas y trazas de PartFinder.")
+
+Rel(mechanic, partfinder, "Busca repuestos / emite pedidos", "HTTPS")
+Rel(supplier, partfinder, "Consulta tendencias de demanda no satisfecha", "HTTPS")
+Rel(admin, partfinder, "Administra cupos + simula slow-mode", "HTTPS")
+Rel(partfinder, invSystems, "Consulta stock con timeout 800ms (R1)", "REST/HTTPS")
+Rel(partfinder, observability, "Expone metricas y trazas", "OTLP / scrape")
+
+@enduml

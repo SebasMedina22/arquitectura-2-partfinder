@@ -43,3 +43,5 @@ logs/
 CLAUDE.md
 ROADMAP.md
 docs/ARCHITECTURE.md
+.agents/
+.claude/
