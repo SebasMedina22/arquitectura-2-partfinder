@@ -42,8 +42,11 @@ logs/
 # --- Workflow interno con Claude (NO subir al repo publico) ---
 CLAUDE.md
 ROADMAP.md
+PRODUCT.md
 docs/ARCHITECTURE.md
 docs/ARCHITECTURE.pdf
+docs/DEMO-GUION.md
+docs/DEMO-GUION.pdf
 .agents/
 .claude/
 plantuml.jar

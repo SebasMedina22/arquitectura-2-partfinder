@@ -19,8 +19,8 @@
 #   Jaeger UI                 -> :16686
 #   Jaeger OTLP gRPC/HTTP     -> :4317 / :4318
 #
-# IMPORTANTE: estos puertos colisionan con los de VoltNet. NO correr ambos
-# proyectos al mismo tiempo.
+# IMPORTANTE: si tienes otros stacks de Docker corriendo localmente, estos puertos
+# pueden colisionar. No levantes dos stacks con los mismos puertos al mismo tiempo.
 
 name: partfinder
 

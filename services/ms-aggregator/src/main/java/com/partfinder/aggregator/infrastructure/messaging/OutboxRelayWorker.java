@@ -27,7 +27,7 @@ import java.util.List;
  *
  * IMPORTANTE: publicamos los bytes JSON directamente con content-type=application/json.
  * Si usaramos convertAndSend(String), el Jackson converter envolveria el string en
- * comillas dobles y el consumer fallaria a deserializar (leccion VoltNet).
+ * comillas dobles y el consumer fallaria a deserializar.
  */
 @Component
 public class OutboxRelayWorker {

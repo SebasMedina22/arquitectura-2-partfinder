@@ -4,7 +4,7 @@
 **Materia:** Arquitectura de Software II — 2026-1
 **Caso de estudio:** #7 — PartFinder: El Marketplace de Repuestos
 **Fecha de diseño:** 2026-05-16
-**Fecha de cierre de implementación:** 2026-05-19
+**Fecha de cierre de implementación:** 2026-06-01
 **Versión:** 1.0
 **Estado:** Implementado y verificado end-to-end (R1, R2 y R3 demostrables; observabilidad y bonus Nginx+UI incluidos)
 
@@ -134,7 +134,7 @@ Stack abierto: **Prometheus** (métricas), **Grafana** (dashboards), **Jaeger** 
 | 6 | **RabbitMQ sobre Kafka** | Simplicidad operacional, UI embebida | Sin event sourcing ni replays masivos (no los necesitamos) |
 | 7 | **Hexagonal estricto** | Tests del dominio sin Spring; reemplazo de adaptadores trivial | Más carpetas y clases que un CRUD plano |
 
-**Trade-off central de PartFinder (diferente al de VoltNet):**
+**Trade-off central de PartFinder:**
 
 > Sacrificamos **respuesta determinista** (sí/no rotundo) a cambio de **disponibilidad útil** (incluso bajo timeout damos información parcial). Esto es la materialización directa de la regla R1 del enunciado: el negocio prefiere "incierto pero pronto" antes que "perfecto pero tarde o caído".
 
@@ -142,7 +142,9 @@ Stack abierto: **Prometheus** (métricas), **Grafana** (dashboards), **Jaeger** 
 
 ## 5. Diagrama C4 Nivel 2 (Contenedores)
 
-_(Pendiente — se generará en Fase 7. Fuente PlantUML: `diagrams/c4/c4-l2-containers.puml`. Diagrama de contexto L1 en el mismo directorio.)_
+![C4 Nivel 2 — Contenedores de PartFinder](diagrams/c4/c4-l2-containers.png)
+
+_El diagrama de contexto (C4 Nivel 1) está en el mismo directorio: `diagrams/c4/c4-l1-context.png`._
 
 ### Resumen narrativo del diagrama L2
 
@@ -169,7 +171,7 @@ Esta sección documenta lo que efectivamente se construyó y se verificó funcio
 |---|---|
 | Arquitectura hexagonal estricta en los 3 MS | ✅ `domain/`, `application/`, `infrastructure/` en cada servicio. El dominio no importa Spring ni JPA. |
 | Base de datos propia por servicio | ✅ Elasticsearch + MySQL (Aggregator, polyglot intra-MS), MySQL (InventoryDirect), PostgreSQL (TrendCollector). Ninguna se comparte entre MS. |
-| Principios SOLID demostrables | ✅ Aplicados; ejemplos en `docs/ARCHITECTURE.md` §9. |
+| Principios SOLID demostrables | ✅ Aplicados; visibles en la capa de dominio (`domain/`) y en la inversión de dependencias por puertos/adaptadores (p. ej. `OrderRulePolicy` como abstracción que `CreateOrderUseCase` consume sin conocer la implementación). |
 | Mínimo 3 patrones GoF | ✅ Implementados los 4: Strategy (`OrderCreditPolicy`), Adapter (Feign/ES/JPA/AMQP), Factory (`SearchResultFactory`), Observer (`DomainEventPublisher` + Outbox). |
 | Validación programática de las 3 reglas del caso en la capa de dominio | ✅ R1 en `domain/factory/SearchResultFactory.java` + `infrastructure/client/InventoryDirectFeignAdapter.java`; R2 en `domain/policy/OrderCreditPolicy.java`; R3 mediante outbox transaccional desde `application/usecase/SearchPartUseCase.java`. |
 | Swagger/OpenAPI funcional por MS | ✅ springdoc-openapi 2.8 en los 3 MS, expuesto en `/swagger-ui.html`. |
@@ -203,9 +205,9 @@ Esta sección documenta lo que efectivamente se construyó y se verificó funcio
 ### 6.4 Decisiones revisadas durante implementación
 
 1. **Polyglot intra-MS en Aggregator** (ES + MySQL juntos): ES para búsqueda, MySQL para Outbox + proyección de crédito. La rúbrica permite polyglot dentro de un MS.
-2. **Puertos del compose ajustados para no chocar con VoltNet.** Si necesitas correr ambos, parar uno primero.
+2. **Puertos del compose elegidos para evitar colisiones con otros stacks locales** (p. ej. MySQL en `3307`/`3308`, PostgreSQL en `5434`). No correr dos stacks con los mismos puertos a la vez.
 3. **Configuración de Feign timeouts vía bean `Request.Options`.** Spring Cloud 2025.x cambió el namespace de la propiedad — el bean explícito es determinístico y resistente a cambios futuros.
-4. **Topología AMQP creada en runtime** por Spring AMQP. No usamos `load_definitions` porque RabbitMQ ignora `RABBITMQ_DEFAULT_USER/PASS` cuando hay un definitions montado (lección VoltNet).
+4. **Topología AMQP creada en runtime** por Spring AMQP. No usamos `load_definitions` porque RabbitMQ ignora `RABBITMQ_DEFAULT_USER/PASS` cuando hay un definitions montado.
 5. **API Gateway y UI fusionados en un solo contenedor `ui-gateway`.**
 
 ---
@@ -213,4 +215,4 @@ Esta sección documenta lo que efectivamente se construyó y se verificó funcio
 ## Anexos
 
 - [`README.md`](../README.md) — Tabla de entregables, stack, instrucciones de despliegue.
-- `docs/ARCHITECTURE.md` (no público) — Documento maestro explicativo para el equipo y la sustentación oral.
+- `docs/diagrams/c4/` — Diagramas C4 Nivel 1 (Contexto) y Nivel 2 (Contenedores) en PlantUML y PNG.

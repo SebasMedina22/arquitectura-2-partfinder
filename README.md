@@ -33,9 +33,9 @@ PartFinder conecta talleres mecánicos con cientos de bodegas de repuestos. Orqu
 
 | Entregable | Ubicación |
 |---|---|
-| Documento RFC (PDF) | [`docs/RFC.md`](docs/RFC.md) → exportar a PDF |
-| Diagrama C4 Nivel 1 (Contexto) | `docs/diagrams/c4/c4-l1-context.puml` |
-| Diagrama C4 Nivel 2 (Contenedores) | `docs/diagrams/c4/c4-l2-containers.puml` |
+| Documento RFC (PDF) | [`docs/RFC.pdf`](docs/RFC.pdf) (fuente: [`docs/RFC.md`](docs/RFC.md)) |
+| Diagrama C4 Nivel 1 (Contexto) | [`docs/diagrams/c4/c4-l1-context.png`](docs/diagrams/c4/c4-l1-context.png) |
+| Diagrama C4 Nivel 2 (Contenedores) | [`docs/diagrams/c4/c4-l2-containers.png`](docs/diagrams/c4/c4-l2-containers.png) |
 | MS-Aggregator (código) | `services/ms-aggregator/` |
 | MS-InventoryDirect (código) | `services/ms-inventory-direct/` |
 | MS-TrendCollector (código) | `services/ms-trend-collector/` |
@@ -112,4 +112,4 @@ Para la justificación de cada decisión y el análisis de trade-offs, ver `docs
 
 ## Estado del proyecto
 
-🚧 **En construcción** — ver `docs/RFC.md` para el diseño detallado y `docs/ARCHITECTURE.md` para la explicación pedagógica.
+✅ **Terminado y verificado end-to-end** — los 3 microservicios, las 3 reglas de negocio (R1, R2, R3), la observabilidad (Prometheus + Grafana + Jaeger) y los bonus (Nginx Gateway + UI) levantan con un solo `docker compose up -d --build`. Ver [`docs/RFC.md`](docs/RFC.md) para el diseño detallado, los atributos de calidad y los trade-offs.
