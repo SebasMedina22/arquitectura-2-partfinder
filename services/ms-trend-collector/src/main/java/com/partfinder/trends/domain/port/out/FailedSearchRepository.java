@@ -15,4 +15,7 @@ public interface FailedSearchRepository {
 
     /** Top N queries con mas fallos. */
     List<TrendSummary> topFailedQueries(int limit);
+
+    /** Borra todas las tendencias (utilidad de demo). */
+    void deleteAll();
 }

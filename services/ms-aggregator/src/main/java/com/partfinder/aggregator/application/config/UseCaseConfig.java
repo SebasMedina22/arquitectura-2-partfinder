@@ -2,8 +2,11 @@ package com.partfinder.aggregator.application.config;
 
 import com.partfinder.aggregator.application.usecase.CreateOrderUseCase;
 import com.partfinder.aggregator.application.usecase.GetOrderUseCase;
+import com.partfinder.aggregator.application.usecase.ListSupplierOrdersUseCase;
 import com.partfinder.aggregator.application.usecase.ListWorkshopOrdersUseCase;
+import com.partfinder.aggregator.application.usecase.ResetDemoUseCase;
 import com.partfinder.aggregator.application.usecase.SearchPartUseCase;
+import com.partfinder.aggregator.application.usecase.UpdateOrderStatusUseCase;
 import com.partfinder.aggregator.domain.factory.SearchResultFactory;
 import com.partfinder.aggregator.domain.policy.OrderCreditPolicy;
 import com.partfinder.aggregator.domain.policy.OrderRulePolicy;
@@ -62,5 +65,20 @@ public class UseCaseConfig {
     @Bean
     public ListWorkshopOrdersUseCase listWorkshopOrdersUseCase(OrderRepository orders) {
         return new ListWorkshopOrdersUseCase(orders);
+    }
+
+    @Bean
+    public ListSupplierOrdersUseCase listSupplierOrdersUseCase(OrderRepository orders) {
+        return new ListSupplierOrdersUseCase(orders);
+    }
+
+    @Bean
+    public UpdateOrderStatusUseCase updateOrderStatusUseCase(OrderRepository orders, WorkshopRepository workshops) {
+        return new UpdateOrderStatusUseCase(orders, workshops);
+    }
+
+    @Bean
+    public ResetDemoUseCase resetDemoUseCase(OrderRepository orders, WorkshopRepository workshops) {
+        return new ResetDemoUseCase(orders, workshops);
     }
 }

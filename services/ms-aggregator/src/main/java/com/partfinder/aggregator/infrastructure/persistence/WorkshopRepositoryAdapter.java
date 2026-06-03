@@ -33,6 +33,7 @@ public class WorkshopRepositoryAdapter implements WorkshopRepository {
                         workshop.creditUsed().amount(), workshop.creditUsed().currency()
                 ));
         entity.setCreditUsedAmount(workshop.creditUsed().amount());
+        entity.setCreditLimitAmount(workshop.creditLimit().amount());
         jpa.save(entity);
     }
 

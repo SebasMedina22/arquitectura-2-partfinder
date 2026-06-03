@@ -28,6 +28,7 @@ class RecordFailedSearchUseCaseTest {
         @Override public List<TrendSummary> topFailedQueries(int limit) {
             return List.of();
         }
+        @Override public void deleteAll() { store.clear(); }
     };
 
     @Test

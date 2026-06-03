@@ -2,7 +2,9 @@ package com.partfinder.aggregator.infrastructure.rest;
 
 import com.partfinder.aggregator.application.usecase.CreateOrderUseCase;
 import com.partfinder.aggregator.application.usecase.GetOrderUseCase;
+import com.partfinder.aggregator.application.usecase.ListSupplierOrdersUseCase;
 import com.partfinder.aggregator.application.usecase.ListWorkshopOrdersUseCase;
+import com.partfinder.aggregator.application.usecase.UpdateOrderStatusUseCase;
 import com.partfinder.aggregator.domain.model.Money;
 import com.partfinder.aggregator.domain.model.PartId;
 import com.partfinder.aggregator.domain.model.Quantity;
@@ -34,9 +36,15 @@ public class OrderController {
     private final CreateOrderUseCase createOrder;
     private final GetOrderUseCase getOrder;
     private final ListWorkshopOrdersUseCase listOrders;
+    private final ListSupplierOrdersUseCase listSupplierOrders;
+    private final UpdateOrderStatusUseCase updateStatus;
 
-    public OrderController(CreateOrderUseCase createOrder, GetOrderUseCase getOrder, ListWorkshopOrdersUseCase listOrders) {
-        this.createOrder = createOrder; this.getOrder = getOrder; this.listOrders = listOrders;
+    public OrderController(CreateOrderUseCase createOrder, GetOrderUseCase getOrder,
+                           ListWorkshopOrdersUseCase listOrders, ListSupplierOrdersUseCase listSupplierOrders,
+                           UpdateOrderStatusUseCase updateStatus) {
+        this.createOrder = createOrder; this.getOrder = getOrder;
+        this.listOrders = listOrders; this.listSupplierOrders = listSupplierOrders;
+        this.updateStatus = updateStatus;
     }
 
     @Operation(summary = "Crea un pedido. Devuelve 422 si R2 bloquea por cupo de credito excedido.")
@@ -59,9 +67,27 @@ public class OrderController {
         return OrderResponse.from(getOrder.execute(id));
     }
 
-    @Operation(summary = "Lista pedidos de un taller.")
+    @Operation(summary = "Lista pedidos por taller (workshopId) o por proveedor (supplierId).")
     @GetMapping
-    public List<OrderResponse> listByWorkshop(@RequestParam("workshopId") String workshopId) {
+    public List<OrderResponse> list(@RequestParam(value = "workshopId", required = false) String workshopId,
+                                    @RequestParam(value = "supplierId", required = false) String supplierId) {
+        if (supplierId != null && !supplierId.isBlank()) {
+            return listSupplierOrders.execute(new SupplierId(supplierId)).stream().map(OrderResponse::from).toList();
+        }
         return listOrders.execute(new WorkshopId(workshopId)).stream().map(OrderResponse::from).toList();
+    }
+
+    @Operation(summary = "Marca un pedido como entregado (CREATED -> FULFILLED).")
+    @PostMapping("/{id}/fulfill")
+    @Transactional
+    public OrderResponse fulfill(@PathVariable("id") String id) {
+        return OrderResponse.from(updateStatus.fulfill(id));
+    }
+
+    @Operation(summary = "Cancela un pedido y devuelve el cupo (CREATED -> CANCELLED).")
+    @PostMapping("/{id}/cancel")
+    @Transactional
+    public OrderResponse cancel(@PathVariable("id") String id) {
+        return OrderResponse.from(updateStatus.cancel(id));
     }
 }

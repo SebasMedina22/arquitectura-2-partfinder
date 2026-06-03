@@ -48,4 +48,5 @@ public class WorkshopJpaEntity {
     public String getCreditUsedCurrency() { return creditUsedCurrency; }
 
     public void setCreditUsedAmount(BigDecimal v) { this.creditUsedAmount = v; }
+    public void setCreditLimitAmount(BigDecimal v) { this.creditLimitAmount = v; }
 }

@@ -68,4 +68,23 @@ public class WorkshopAdminController {
                     "exceeded", updated.hasExceededCredit()));
         }).orElse(ResponseEntity.notFound().build());
     }
+
+    public record SetCreditLimitRequest(@NotNull @PositiveOrZero BigDecimal amount) {}
+
+    @Operation(summary = "Admin: setea el cupo (tope) de credito del taller.")
+    @PostMapping("/{id}/credit-limit")
+    public ResponseEntity<Map<String, Object>> setCreditLimit(@PathVariable("id") String id,
+                                                              @Valid @RequestBody SetCreditLimitRequest req) {
+        return workshops.findById(new WorkshopId(id)).map(w -> {
+            Workshop updated = new Workshop(
+                    w.id(), w.name(),
+                    new Money(req.amount(), w.creditLimit().currency()),
+                    w.creditUsed());
+            workshops.save(updated);
+            return ResponseEntity.ok(Map.<String, Object>of(
+                    "id", updated.id().value(),
+                    "creditLimit", updated.creditLimit().amount(),
+                    "exceeded", updated.hasExceededCredit()));
+        }).orElse(ResponseEntity.notFound().build());
+    }
 }

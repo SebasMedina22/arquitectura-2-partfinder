@@ -2,15 +2,25 @@
   "annotations": { "list": [] },
   "editable": true,
   "fiscalYearStartMonth": 0,
-  "graphTooltip": 0,
+  "graphTooltip": 1,
   "id": null,
   "links": [],
   "liveNow": false,
   "panels": [
     {
+      "type": "text",
+      "title": "Como leer este tablero (metodo RED)",
+      "gridPos": { "h": 5, "w": 24, "x": 0, "y": 0 },
+      "options": {
+        "mode": "markdown",
+        "content": "**Observabilidad de PartFinder.** Seguimos el metodo **RED** sobre las metricas que expone cada microservicio en `/actuator/prometheus` (Micrometer), scrapeadas por Prometheus cada 15s.\n\n- **R — Rate (trafico):** peticiones por segundo. `rate(http_server_requests_seconds_count[1m])`.\n- **E — Errors:** respuestas con error. **4xx** = error del *cliente* (p. ej. el **422** de R2 cuando el credito esta excedido, o una peticion mal formada). **5xx** = error del *servidor* (excepcion no controlada). Se distinguen con el label `outcome` (`CLIENT_ERROR` / `SERVER_ERROR`).\n- **D — Duration (latencia):** percentil **p95**. La regla **R1** vive aqui: el panel de `/search` marca en rojo el umbral de **800 ms** (el timeout de Feign hacia InventoryDirect).\n\nAdemas vigilamos salud (`up`), memoria JVM y la cola de RabbitMQ (backlog del flujo asincrono R3)."
+      }
+    },
+    {
       "type": "stat",
-      "title": "Servicios UP",
-      "gridPos": { "h": 5, "w": 8, "x": 0, "y": 0 },
+      "title": "Servicios UP / DOWN",
+      "description": "Metrica `up` de Prometheus: 1 si el ultimo scrape al microservicio respondio, 0 si fallo. Es la senal de disponibilidad de cada MS.",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 5 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         { "expr": "up{job=~\"ms-.*\"}", "legendFormat": "{{service}}", "refId": "A" }
@@ -27,57 +37,76 @@
     },
     {
       "type": "timeseries",
-      "title": "HTTP RPS por servicio",
-      "gridPos": { "h": 9, "w": 16, "x": 8, "y": 0 },
+      "title": "R — Throughput (RPS por servicio)",
+      "description": "Rate del metodo RED: peticiones HTTP por segundo que atiende cada microservicio. PromQL: sum(rate(http_server_requests_seconds_count[1m])) by (service).",
+      "gridPos": { "h": 6, "w": 9, "x": 6, "y": 5 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         { "expr": "sum(rate(http_server_requests_seconds_count{service=~\"ms-.*\"}[1m])) by (service)", "legendFormat": "{{service}}", "refId": "A" }
       ],
-      "fieldConfig": { "defaults": { "unit": "reqps" } }
+      "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "drawStyle": "line", "fillOpacity": 10 } } }
     },
     {
       "type": "timeseries",
-      "title": "p95 latencia /search (Aggregator) — threshold 800ms (R1)",
-      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 5 },
+      "title": "E — Errores 4xx / 5xx",
+      "description": "Errors del metodo RED. 4xx = error del cliente (incluye el 422 de R2 al bloquear un pedido por credito excedido). 5xx = error del servidor (excepcion no controlada). Se separan con el label outcome de Micrometer.",
+      "gridPos": { "h": 6, "w": 9, "x": 15, "y": 5 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        { "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{service=\"ms-aggregator\",uri=\"/search\"}[5m])) by (le))", "legendFormat": "p95", "refId": "A" }
+        { "expr": "sum(rate(http_server_requests_seconds_count{service=~\"ms-.*\",outcome=\"CLIENT_ERROR\"}[5m])) by (service)", "legendFormat": "4xx {{service}}", "refId": "A" },
+        { "expr": "sum(rate(http_server_requests_seconds_count{service=~\"ms-.*\",outcome=\"SERVER_ERROR\"}[5m])) by (service)", "legendFormat": "5xx {{service}}", "refId": "B" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "drawStyle": "line", "fillOpacity": 15 } } }
+    },
+    {
+      "type": "timeseries",
+      "title": "D — p95 latencia /search (Aggregator) · umbral 800ms (R1)",
+      "description": "Duration del metodo RED: percentil 95 de la latencia de GET /search. La linea roja en 0.8s marca el umbral de R1 (timeout de Feign hacia InventoryDirect). Si el p95 lo cruza seguido, R1 se esta disparando con frecuencia.",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 11 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{service=\"ms-aggregator\",uri=\"/search\"}[5m])) by (le))", "legendFormat": "p95 /search", "refId": "A" }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "s",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "thresholdsStyle": { "mode": "line" } },
           "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 0.5 }, { "color": "red", "value": 0.8 }] }
         }
       }
     },
     {
       "type": "timeseries",
-      "title": "p95 InventoryDirect (latencia interna del MS sincrono)",
-      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 9 },
+      "title": "D — p95 InventoryDirect (REST sincrono)",
+      "description": "Latencia p95 interna del microservicio sincrono. Cuando se activa el slow-mode desde Admin, esta sube por encima de 800ms y dispara R1 en el Aggregator.",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 11 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        { "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{service=\"ms-inventory-direct\",uri=\"/inventory\"}[5m])) by (le))", "legendFormat": "p95", "refId": "A" }
+        { "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{service=\"ms-inventory-direct\",uri=\"/inventory\"}[5m])) by (le))", "legendFormat": "p95 /inventory", "refId": "A" }
       ],
-      "fieldConfig": { "defaults": { "unit": "s" } }
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10 } } }
     },
     {
       "type": "timeseries",
       "title": "JVM Heap usado por servicio",
-      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 14 },
+      "description": "Memoria heap en uso por cada JVM (jvm_memory_used_bytes, area=heap). Senal de salud de recursos; util para detectar fugas o presion de memoria.",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 18 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         { "expr": "sum(jvm_memory_used_bytes{area=\"heap\",service=~\"ms-.*\"}) by (service)", "legendFormat": "{{service}}", "refId": "A" }
       ],
-      "fieldConfig": { "defaults": { "unit": "bytes" } }
+      "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "drawStyle": "line", "fillOpacity": 10 } } }
     },
     {
       "type": "timeseries",
-      "title": "Mensajes pendientes por cola (RabbitMQ)",
-      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 18 },
+      "title": "RabbitMQ · mensajes pendientes por cola (backlog R3)",
+      "description": "Mensajes listos (sin consumir) por cola del broker. En operacion normal es ~0; si TrendCollector se detiene, el backlog crece y se ve aqui. Es la salud del flujo asincrono R3.",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 18 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         { "expr": "rabbitmq_queue_messages_ready", "legendFormat": "{{queue}}", "refId": "A" }
-      ]
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 } } }
     }
   ],
   "refresh": "15s",
@@ -88,6 +117,6 @@
   "timezone": "",
   "title": "PartFinder Health",
   "uid": "partfinder-health",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }

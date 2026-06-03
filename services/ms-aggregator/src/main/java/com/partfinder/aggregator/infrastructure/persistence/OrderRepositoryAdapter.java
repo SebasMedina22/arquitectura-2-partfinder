@@ -34,6 +34,16 @@ public class OrderRepositoryAdapter implements OrderRepository {
     }
 
     @Override
+    public List<Order> findBySupplier(SupplierId supplierId) {
+        return jpa.findBySupplierId(supplierId.value()).stream().map(this::toDomain).toList();
+    }
+
+    @Override
+    public void deleteAll() {
+        jpa.deleteAll();
+    }
+
+    @Override
     public void save(Order order) {
         jpa.save(new OrderJpaEntity(
                 order.id(), order.workshopId().value(),

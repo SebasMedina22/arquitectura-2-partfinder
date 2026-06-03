@@ -36,6 +36,14 @@ public class Order {
                 quantity, totalAmount, at, OrderStatus.CREATED);
     }
 
+    /** Marca el pedido como entregado por el proveedor. */
+    public void markFulfilled() { this.status = OrderStatus.FULFILLED; }
+
+    /** Cancela el pedido. */
+    public void markCancelled() { this.status = OrderStatus.CANCELLED; }
+
+    public boolean isCreated() { return status == OrderStatus.CREATED; }
+
     public String id() { return id; }
     public WorkshopId workshopId() { return workshopId; }
     public PartId partId() { return partId; }

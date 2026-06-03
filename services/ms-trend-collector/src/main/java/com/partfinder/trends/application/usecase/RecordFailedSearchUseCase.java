@@ -19,9 +19,10 @@ public class RecordFailedSearchUseCase {
         this.repository = repository;
     }
 
-    public void execute(SearchFailedEvent event) {
+    /** @return true si se registro un evento nuevo; false si era un duplicado (idempotencia). */
+    public boolean execute(SearchFailedEvent event) {
         if (repository.findByEventId(event.eventId()).isPresent()) {
-            return; // ya procesado
+            return false; // ya procesado
         }
         repository.save(new FailedSearchRecord(
                 event.eventId(),
@@ -29,5 +30,6 @@ public class RecordFailedSearchUseCase {
                 new WorkshopId(event.workshopId()),
                 event.searchedAt()
         ));
+        return true;
     }
 }

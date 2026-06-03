@@ -1,20 +1,23 @@
 import { useState } from 'react'
 import { searchParts } from '../api.js'
+import { PARTS, WORKSHOPS, availabilityLabel } from '../seed.js'
 
-export default function SearchTab() {
+const THRESHOLD = 800 // ms — umbral para marcar la disponibilidad como incierta
+
+export default function SearchTab({ session }) {
   const [query, setQuery] = useState('filtro')
-  const [workshopId, setWorkshopId] = useState('WS-001')
+  const [workshopId, setWorkshopId] = useState(session?.workshopId || 'WS-001')
   const [results, setResults] = useState([])
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
   const [elapsedMs, setElapsedMs] = useState(null)
+  const [searched, setSearched] = useState(false)
 
-  const onSearch = async () => {
-    setBusy(true); setError(null); setResults([]); setElapsedMs(null)
+  const run = async (q = query, ws = workshopId) => {
+    setBusy(true); setError(null); setResults([]); setElapsedMs(null); setSearched(true)
     const t0 = performance.now()
     try {
-      const r = await searchParts(query, workshopId)
-      setResults(r)
+      setResults(await searchParts(q, ws))
     } catch (e) {
       setError({ status: e.status, body: e.body, message: e.message })
     } finally {
@@ -27,35 +30,74 @@ export default function SearchTab() {
     new Intl.NumberFormat('es-CO', { style: 'currency', currency, maximumFractionDigits: 0 })
       .format(parseFloat(amount))
 
+  const anyUncertain = results.some(r => r.availability === 'UNCERTAIN')
+  const over = elapsedMs !== null && elapsedMs > THRESHOLD
+  const meterPct = elapsedMs === null ? 0 : Math.min(100, (elapsedMs / (THRESHOLD * 2)) * 100)
+
   return (
     <div className="card">
-      <h2>Buscar parte en el catalogo</h2>
+      <h2>Buscar repuesto</h2>
       <p className="help">
-        Consulta el catalogo (Elasticsearch) + disponibilidad en proveedores via REST sincrono.
-        Si InventoryDirect tarda mas de <code>800 ms</code>, el resultado se marca como
-        <span className="badge UNCERTAIN" style={{margin:'0 4px'}}>UNCERTAIN</span>
-        — regla R1 del caso.
+        Busca una pieza por nombre y mira que proveedores la tienen en stock, con su precio
+        de referencia. Si un proveedor responde lento, te lo marcamos como disponibilidad incierta
+        para que no te quedes esperando.
       </p>
 
       <div className="row">
         <div style={{flex:3}}>
           <label>Texto a buscar</label>
-          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="filtro de aceite, bujias, pastillas..." />
+          <input value={query} onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && !busy && query.trim() && run()}
+            placeholder="filtro de aceite, bujias, pastillas..." />
         </div>
         <div>
-          <label>Workshop ID (opcional)</label>
-          <input className="mono" value={workshopId} onChange={e => setWorkshopId(e.target.value.toUpperCase())} placeholder="WS-001" />
+          <label>Buscando como</label>
+          {session?.role === 'admin' ? (
+            <select className="mono" value={workshopId} onChange={e => setWorkshopId(e.target.value)}>
+              {WORKSHOPS.map(w => <option key={w.id} value={w.id}>{w.id} — {w.name}</option>)}
+            </select>
+          ) : (
+            <input className="mono" value={workshopId} readOnly title="Tu taller" />
+          )}
         </div>
-        <button className="btn primary" onClick={onSearch} disabled={busy || !query.trim()}>
+        <button className="btn primary" onClick={() => run()} disabled={busy || !query.trim()}>
           {busy ? 'Buscando…' : 'Buscar'}
         </button>
       </div>
 
+      {/* Quick-picks del catalogo sembrado + un termino inexistente para R3 */}
+      <div className="picker">
+        {PARTS.map(p => (
+          <button key={p.id} className={`pick ${query === p.query ? 'on' : ''}`}
+            onClick={() => { setQuery(p.query); run(p.query) }} title={p.name}>
+            {p.query}
+          </button>
+        ))}
+        <button className="pick" onClick={() => { setQuery('zzz-no-existe'); run('zzz-no-existe') }}
+          title="Pieza que ningun proveedor tiene">
+          zzz-no-existe
+        </button>
+      </div>
+
+      {/* Medidor de latencia (R1) */}
       {elapsedMs !== null && (
-        <p className="legend" style={{marginTop:14}}>
-          Latencia total del request: <code>{elapsedMs} ms</code>
-          {elapsedMs > 800 && <span> · supera el threshold de 800ms (R1 deberia haber marcado UNCERTAIN)</span>}
-        </p>
+        <div className="meter">
+          <div className="m-head">
+            <span>Tiempo de respuesta {anyUncertain && <span className="badge UNCERTAIN" style={{marginLeft:6}}>Disponibilidad incierta</span>}</span>
+            <span className="val">{elapsedMs} ms</span>
+          </div>
+          <div className="m-track">
+            <div className={`m-fill ${over ? 'over' : 'ok'}`} style={{ width: `${meterPct}%` }} />
+            <div className="m-threshold" style={{ left: '50%' }} />
+          </div>
+          <p className="m-foot">
+            {anyUncertain
+              ? <>Un proveedor esta respondiendo lento, asi que marcamos su disponibilidad como incierta. Puedes seguir adelante con la compra bajo tu criterio.</>
+              : over
+                ? <>La respuesta tardo un poco, pero los proveedores alcanzaron a confirmar el stock.</>
+                : <>Respuesta rapida: disponibilidad confirmada.</>}
+          </p>
+        </div>
       )}
 
       {error && (
@@ -69,7 +111,15 @@ export default function SearchTab() {
         </div>
       )}
 
-      {results.length > 0 && (
+      {busy && (
+        <div className="results">
+          <div className="skeleton sk-row" />
+          <div className="skeleton sk-row" />
+          <div className="skeleton sk-row" />
+        </div>
+      )}
+
+      {!busy && results.length > 0 && (
         <div className="results">
           {results.map(r => (
             <div key={r.partId} className="result-row">
@@ -95,7 +145,7 @@ export default function SearchTab() {
                 )}
               </div>
               <div className="right">
-                <span className={`badge ${r.availability}`}>{r.availability}</span>
+                <span className={`badge ${r.availability}`}>{availabilityLabel(r.availability)}</span>
                 <span className="price">{formatPrice(r.referencePrice, r.currency)}</span>
               </div>
             </div>
@@ -103,20 +153,25 @@ export default function SearchTab() {
         </div>
       )}
 
-      {results.length === 0 && !error && !busy && elapsedMs !== null && (
+      {!busy && results.length === 0 && !error && searched && (
         <div className="alert warn">
           <span className="icon">!</span>
           <div>
-            Sin resultados en el catalogo. Se publico un <code>SearchFailedEvent</code> al broker
-            (R3) — verifica la pestaña <strong>Tendencias</strong> en unos segundos.
+            Ningun proveedor tiene esta pieza ahora mismo. La registramos en
+            <strong> Tendencias</strong> para que los proveedores la tengan en cuenta.
           </div>
         </div>
       )}
 
-      <p className="legend" style={{marginTop:16}}>
-        Catalogo sembrado: <code>filtro</code> · <code>bujias</code> · <code>pastillas</code> · <code>embrague</code> · <code>aceite</code>.
-        Para forzar R1 sube el slow-mode en la pestaña <strong>Admin</strong> a 1500ms.
-      </p>
+      {!busy && !searched && (
+        <div className="empty">
+          <div className="e-mark">⌕</div>
+          <div className="e-title">Busca un repuesto para empezar</div>
+          <div className="e-body">
+            Escribe el nombre de una pieza o usa los atajos de arriba.
+          </div>
+        </div>
+      )}
     </div>
   )
 }

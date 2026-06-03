@@ -34,6 +34,13 @@ public class Workshop {
         this.creditUsed = creditUsed.plus(amount);
     }
 
+    /** Devuelve cupo al cancelar un pedido. No baja de cero. */
+    public void release(Money amount) {
+        this.creditUsed = new Money(
+                creditUsed.amount().subtract(amount.amount()).max(java.math.BigDecimal.ZERO),
+                creditUsed.currency());
+    }
+
     public WorkshopId id() { return id; }
     public String name() { return name; }
     public Money creditLimit() { return creditLimit; }

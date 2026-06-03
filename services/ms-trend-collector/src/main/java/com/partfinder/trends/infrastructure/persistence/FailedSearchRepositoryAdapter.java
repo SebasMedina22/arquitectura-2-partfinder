@@ -41,6 +41,11 @@ public class FailedSearchRepositoryAdapter implements FailedSearchRepository {
     }
 
     @Override
+    public void deleteAll() {
+        jpa.deleteAll();
+    }
+
+    @Override
     public List<TrendSummary> topFailedQueries(int limit) {
         return jpa.aggregateTrends(PageRequest.of(0, limit)).stream()
                 .map(r -> new TrendSummary(new PartQuery(r.getPartQuery()),

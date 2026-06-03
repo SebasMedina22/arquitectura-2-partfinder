@@ -38,7 +38,9 @@ class CreateOrderUseCaseTest {
         OrderRepository orders = new OrderRepository() {
             @Override public Optional<Order> findById(String id) { return Optional.ofNullable(orderStore.get(id)); }
             @Override public List<Order> findByWorkshop(WorkshopId w) { return List.of(); }
+            @Override public List<Order> findBySupplier(com.partfinder.aggregator.domain.model.SupplierId s) { return List.of(); }
             @Override public void save(Order o) { orderStore.put(o.id(), o); }
+            @Override public void deleteAll() { orderStore.clear(); }
         };
         List<OrderRulePolicy> policies = List.of(new OrderCreditPolicy());
         return new CreateOrderUseCase(policies, workshops, orders, fixed);
